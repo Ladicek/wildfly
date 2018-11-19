@@ -21,6 +21,8 @@
  */
 package org.jboss.as.weld;
 
+import org.jboss.as.server.deployment.SetupAction;
+import org.jboss.as.weld.logging.WeldLogger;
 import org.jboss.msc.service.Service;
 import org.jboss.msc.service.ServiceName;
 import org.jboss.msc.service.StartContext;
@@ -29,6 +31,8 @@ import org.jboss.msc.service.StopContext;
 import org.jboss.msc.value.InjectedValue;
 import org.jboss.weld.bootstrap.api.Bootstrap;
 import org.wildfly.security.manager.WildFlySecurityManager;
+
+import java.util.List;
 
 /**
  * This service calls {@link Bootstrap#endInitialization()}, i.e. places the container into a state where it can service requests. It is started after all EE
@@ -43,9 +47,11 @@ public class WeldStartCompletionService implements Service<WeldStartCompletionSe
 
     private final InjectedValue<WeldBootstrapService> bootstrap = new InjectedValue<WeldBootstrapService>();
 
+    private final List<SetupAction> setupActions;
     private final ClassLoader classLoader;
 
-    public WeldStartCompletionService(ClassLoader classLoader) {
+    public WeldStartCompletionService(List<SetupAction> setupActions, ClassLoader classLoader) {
+        this.setupActions = setupActions;
         this.classLoader = classLoader;
     }
 
@@ -53,9 +59,19 @@ public class WeldStartCompletionService implements Service<WeldStartCompletionSe
     public void start(final StartContext context) throws StartException {
         ClassLoader oldTccl = WildFlySecurityManager.getCurrentContextClassLoaderPrivileged();
         try {
+            for (SetupAction action : setupActions) {
+                action.setup(null);
+            }
             WildFlySecurityManager.setCurrentContextClassLoaderPrivileged(classLoader);
             bootstrap.getValue().getBootstrap().endInitialization();
         } finally {
+            for (SetupAction action : setupActions) {
+                try {
+                    action.teardown(null);
+                } catch (Exception e) {
+                    WeldLogger.DEPLOYMENT_LOGGER.exceptionClearingThreadState(e);
+                }
+            }
             WildFlySecurityManager.setCurrentContextClassLoaderPrivileged(oldTccl);
         }
     }

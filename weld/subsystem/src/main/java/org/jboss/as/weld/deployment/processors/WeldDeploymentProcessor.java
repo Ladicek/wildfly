@@ -288,7 +288,7 @@ public class WeldDeploymentProcessor implements DeploymentUnitProcessor {
         startService.install();
 
         // Defer invocation of WeldBootstrap.endInitialization() until all EE components are started
-        WeldStartCompletionService weldStartCompletionService = new WeldStartCompletionService(module.getClassLoader());
+        WeldStartCompletionService weldStartCompletionService = new WeldStartCompletionService(setupActions, module.getClassLoader());
 
         ServiceBuilder<WeldStartCompletionService> weldStartCompletionServiceBuilder = serviceTarget
                 .addService(weldStartCompletionServiceName, weldStartCompletionService)
